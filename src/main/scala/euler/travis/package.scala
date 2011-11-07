@@ -12,10 +12,10 @@ def naturals[A](implicit f: Integral[A]): Stream[A] = Stream.iterate(f.one)(_ + 
 def power[A: Integral](a: A, b: Int): A = Stream.iterate(a, b)(_ * a).last
 def probablyPrimes(c: Int) = naturals[BigInt].filter(_.isProbablePrime(c))
 
-def primes[A: Integral]: Stream[A] = {
+def primesSlow[A: Integral]: Stream[A] = {
   val f = implicitly[Integral[A]]
   def sieve(n: A): Stream[A] = {
-    def composite = primes.takeWhile { p =>
+    def composite = primesSlow.takeWhile { p =>
       f.lteq(f.times(p, p), n)
     }.exists { i => f.rem(n, i) == 0 }
 
@@ -25,6 +25,35 @@ def primes[A: Integral]: Stream[A] = {
   f.fromInt(2) #:: sieve(f.fromInt(3))
 }
 
+def primes[A: Integral]: Stream[A] = primesWithBlockSize(2048)
+def primesWithBlockSize[A: Integral](block: Int): Stream[A] = {
+  val f = implicitly[Integral[A]]
+  val two = f.fromInt(2)
+  val b = f.fromInt(block * 2)
+  val ones = collection.mutable.BitSet.empty ++ (0 until block)
+  val known = primesUpTo(block * 2).map(f.fromInt(_))
+  val ps = known.tail.toBuffer
+
+  def findInBlock(i: A) = {
+    val m = i * b
+    val n = m + b
+    var bs = ones.clone
+    ps.takeWhile(p => f.lt(p * p, n)).foreach { p =>
+      var k = f.quot(m + f.one, p)
+      if (f.gt(f.rem(m + f.one, p), f.zero)) k += f.one
+      k += f.one - f.rem(k, two)
+      while (f.lt(p * k, n)) {
+        bs.remove((f.quot(p * k - m - f.one, two)).toInt)
+        k += two
+      }
+    }
+    val bps = bs.toSeq.map(i => m + f.fromInt(i * 2 + 1))
+    ps ++= bps
+    bps.toStream
+  }
+
+  known.toStream ++ naturals.flatMap(findInBlock(_))
+}
 
 def primesUpTo(n: Int): Seq[Int] = {
   val h = n / 2 + n % 2 - 1

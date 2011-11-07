@@ -31,10 +31,10 @@ trait Solutions {
     case (m, (i, s)) => m.updated(i, m.getOrElse(i, Seq.empty[Solution]) :+ s)
   }
 
-  def data(n: Int): Option[String] =
+  def data(n: Int): String =
     Option(this.getClass.getResource("/euler/data/%03d.txt".format(n))).map(
       scala.io.Source.fromURL(_).mkString
-    )
+    ).get
 
   def benchmark(solutions: Seq[Solution]) { this.benchmark(solutions, 5) }
   def benchmark(solutions: Seq[Solution], i: Int) {
@@ -52,7 +52,11 @@ trait Solutions {
   def main(args: Array[String]) {
     args match {
       case Array(IntString(n)) => this.benchmark(this.solutions(n))
-      case _ => this.benchmark(this.solutions.toSeq.sortBy(_._1).flatMap(_._2))
+      case Array("-f") => this.benchmark(this.solutions.toSeq.sortBy(_._1).flatMap(_._2))
+      case _ => this.benchmark(this.solutions.toSeq.sortBy(_._1).flatMap(_._2).filter {
+        case _: NamedSolution => false
+        case _ => true
+      })
     }
   }
 }
