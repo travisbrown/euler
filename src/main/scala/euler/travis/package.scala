@@ -25,14 +25,13 @@ def primesSlow[A: Integral]: Stream[A] = {
   f.fromInt(2) #:: sieve(f.fromInt(3))
 }
 
-def primes[A: Integral]: Stream[A] = primesWithBlockSize(2048)
-def primesWithBlockSize[A: Integral](block: Int): Stream[A] = {
-  val f = implicitly[Integral[A]]
+def primes[A](implicit f: Integral[A]): Stream[A] = primesWithBlockSize(8096)
+def primesWithBlockSize[A](block: Int)(implicit f: Integral[A]): Stream[A] = {
   val two = f.fromInt(2)
   val b = f.fromInt(block * 2)
   val ones = collection.mutable.BitSet.empty ++ (0 until block)
   val known = primesUpTo(block * 2).map(f.fromInt(_))
-  val ps = known.tail.toBuffer
+  var ps = known.tail.toBuffer
 
   def findInBlock(i: A) = {
     val m = i * b
@@ -43,13 +42,15 @@ def primesWithBlockSize[A: Integral](block: Int): Stream[A] = {
       if (f.gt(f.rem(m + f.one, p), f.zero)) k += f.one
       k += f.one - f.rem(k, two)
       while (f.lt(p * k, n)) {
-        bs.remove((f.quot(p * k - m - f.one, two)).toInt)
+        bs.remove(((p * k - m).toInt - 1) / 2)
         k += two
       }
     }
-    val bps = bs.toSeq.map(i => m + f.fromInt(i * 2 + 1))
+    val l = ps.length
+    val s = bs.size
+    val bps = bs.iterator.map(i => m + f.fromInt(i * 2 + 1))
     ps ++= bps
-    bps.toStream
+    ps.slice(l, l + s).toStream
   }
 
   known.toStream ++ naturals.flatMap(findInBlock(_))
@@ -93,7 +94,7 @@ def factors[A](n: A)(implicit f: Integral[A]): List[A] = {
 }
 
 def factorCounts[A](n: A)(implicit f: Integral[A]): Map[A, Int] = {
-  factors(n)(f).foldLeft(Map.empty[A, Int].withDefaultValue(0)) {
+  factors(n).foldLeft(Map.empty[A, Int].withDefaultValue(0)) {
     case (m, i) => m.updated(i, m(i) + 1) 
   }
 }
